@@ -1,12 +1,8 @@
 /* 
    Ulazni podaci:
-   n       - dimenzija matrice
-   A       - n x n matrica sustava
-   b       - vektor iz R^n, desna strana sustava
-   x0      - pocetna iteracija
-   omega   - omega za SOR metodu
-   epsilon - zeljena apsolutna preciznost
-   norma   - '1' ili 'I' (norma koju cemo koristiti, 1-norma ili oo-norma)
+   Program ucitava 100x100 matricu A iz datoteke stieltjes_matr.txt.
+   Namjesta desnu stranu sustava (b) tako da je rjesenje [ 1 ... 1 ]^T
+   i nakon toga rjesava sustav SOR metodom.
  */
 
 #include <stdio.h>
@@ -100,31 +96,29 @@ void sor_rjesavac(
     double omega,
     double *A,
     double *b,
-    double *x0,
+    double *x,
     double epsilon,
     char norm)
 {
     int i;
-    double alpha, norma_d, norma_T;
-    double *x1, *work;
+    double alpha, beta;
+    double norm_b;
+    double *res, *work;
 
+    res = (double*)malloc(n * sizeof(double));
     work = (double*)malloc(n * sizeof(double));
+
+    norm_b = dlange_(&norm, &n, &INT1, b, &n, work);
     
-    x1 = (double*)malloc(n * sizeof(double));
-    dcopy_(&n, x0, &INT1, x1, &INT1);
-    sor_iteracija(n, omega, A, b, x1);
+    while (1) {
+	dcopy_(&n, b, &INT1, res, &INT1);
+	alpha = 1.0; beta = -1.0;
+	dgemv_("N", &n, &n, &alpha, A, &n, x, &INT1, &beta, res, &INT1);
+	if (dlange_(&norm, &n, &INT1, res, &n, work) / norm_b < epsilon) break;
+	sor_iteracija(n, omega, A, b, x);
+    };
 
-    alpha = 1.0;
-    daxpy_(&n, &alpha, x0, &INT1, x1, &INT1);
-    norma_d = dlange_(&norm, &n, &INT1, x1, &n, work);
-    norma_T = sor_norma(n, omega, A, norm);
-
-    double k = ceil(log(epsilon*(1-norma_T) / norma_d) / log(norma_T));
-    printf("dovoljno je %.0lf iteracija.\n", k);
-
-    for (i = 0; i < k; ++i) sor_iteracija(n, omega, A, b, x0);
-    
-    free(x1);
+    free(res);
     free(work);
 }
 
@@ -133,53 +127,62 @@ int main(void)
     int n, i, j;
     char norm;
     double omega, epsilon;
-    double *A, *T, *b, *x;
+    double alpha, beta;
+    double *A, *b, *x0, *x, *r, *work;
+    FILE *f;
     
-    scanf("%d", &n);
+    n = 100;
 
     A = (double*)malloc(n * n * sizeof(double));
     b = (double*)malloc(n * sizeof(double));
+    x0 = (double*)malloc(n * sizeof(double));
     x = (double*)malloc(n * sizeof(double));
-    
+    work = (double*)malloc(n * sizeof(double));
+
+    f = fopen("stieltjes_matr.txt", "r");
     for (i = 0; i < n; ++i)
 	for (j = 0; j < n; ++j)
-	    scanf("%lf", &A[j*n+i]);
+	    fscanf(f, "%lf", &A[j*n+i]);
+    fclose(f);
 
-    for (i = 0; i < n; ++i)
-	scanf("%lf", &b[i]);
-
-    for (i = 0; i < n; ++i)
-	scanf("%lf", &x[i]);
-
-    scanf("%lf", &omega);
-    scanf("%lf", &epsilon);
-    scanf(" %c", &norm);
+    // egzaktno rjesenje x = [ 1 .. 1 ]^T
+    fill(n, 1, x, 1.0);
+    // namjestamo b
+    alpha = 1.0; beta = 0.0;
+    dgemv_("N", &n, &n, &alpha, A, &n, x, &INT1, &beta, b, &INT1);
+    
+    // pocetna iteracija x0 = [ 0 .. 0 ]^T
+    fill(n, 1, x0, 0.0);
+    
+    omega = 1.3;
+    epsilon = 1e-5;
+    norm = '1';
 
     printf("Rjesavamo sustav Ax = b SOR metodom uz omega = %g s pocetnom iteracijom x0.\n",
 	   omega);
-    print_matrix("A  = ", n, n, A);
-    print_vector("b  = ", n, b);
-    print_vector("x0 = ", n, x);
-    printf("--------------------------------------\n");
-    printf("Trazimo rjesenje koje odstupa od egzaktnog za %g u %c-normi.\n",
+    printf("Trazimo rjesenje koje relativno odstupa od egzaktnog za %g u %c-normi.\n",
 	   epsilon, norm);
 
-    T = (double*)malloc(n * n * sizeof(double));
-    sor_matrica(n, omega, A, T);
-
-    print_matrix("matrica iteracija T = ", n, n, T);
     printf("\n|T|_%c = %.6lf, ", norm, sor_norma(n, omega, A, norm));
     printf("uvjet za konvergenciju u %c-normi %s ispunjen\n",
 	   norm, sor_konvergencija(n, omega, A, norm) ? "je" : "nije");
 
-    sor_rjesavac(n, omega, A, b, x, epsilon, norm);
+    sor_rjesavac(n, omega, A, b, x0, epsilon, norm);
 
-    print_vector("izracunato rjesenje = ", n, x);
+    r = (double*)malloc(n * sizeof(double));
+    dcopy_(&n, x0, &INT1, r, &INT1);
+    alpha = -1.0;
+    daxpy_(&n, &alpha, x, &INT1, r, &INT1);
+
+    printf("relativna pogreska = %g ...\n",
+	   dlange_(&norm, &n, &INT1, r, &n, work) / dlange_(&norm, &n, &INT1, x, &n, work));
 
     free(A);
-    free(T);
     free(b);
     free(x);
+    free(x0);
+    free(r);
+    free(work);
     
     return 0;
 }
