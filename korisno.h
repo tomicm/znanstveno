@@ -1,9 +1,25 @@
+#ifndef __KORISNO__
+#define __KORISNO__
+
+#include <math.h>
+
 const int INT1 = 1;
+const int INT2 = 2;
+const int INT3 = 3;
 
 void fill(int m, int n, double *A, double v) {
     int i;
     for (i = 0; i < m*n; ++i)
 	A[i] = v;
+}
+
+double sqr(double x) { return x*x; }
+
+double distance(int n, double *x, double *y) {
+	int i;
+	double ans = 0.0;
+	for (i = 0; i < n; ++i) ans += sqr(x[i]-y[i]);
+	return sqrt(ans);
 }
 
 void print_matrix(char *msg, int m, int n, double *A) {
@@ -23,3 +39,4 @@ void print_vector(char *msg, int n, double *x) {
 	printf("%.6lf ", x[i]);
     printf("]^T\n");
 }
+#endif
