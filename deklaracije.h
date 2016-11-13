@@ -36,6 +36,16 @@ extern void dtrsm_(
     double *B,
     const int *ldb);
 
+extern void dtrsv_(
+    const char *uplo,
+    const char *trans,
+    const char *diag,
+    const int *n,
+    double *A,
+    const int *lda,
+    double *x,
+    const int *incx);
+		   
 extern double dlange_(
     const char *norm,
     const int *m,
